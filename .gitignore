@@ -1,0 +1,6 @@
+node_modules/
+native/build/
+src/wasm/*.mjs
+src/wasm/*.wasm
+test/wasm/
+*.local

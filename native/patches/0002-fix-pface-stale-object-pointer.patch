@@ -1,0 +1,62 @@
+Fix a use-after-free in dwg_add_POLYLINE_PFACE (src/dwg_api.c).
+
+The function keeps `pl`, a Dwg_Object* into dwg->object[], across the loops
+that add the mesh's vertices. Each dwg_add_VERTEX_PFACE() call goes through
+dwg_add_object(), which reallocs that array, so after the first realloc `pl`
+points into freed memory. It is then passed to dwg_add_handleref() for every
+vertex and face.
+
+Natively this segfaults on meshes above a few hundred vertices. Compiled to
+WebAssembly there is no crash: the stale read returns whatever now occupies
+that memory, so the mesh is written with wrong vertex handles and the faces
+come back pointing at the wrong corners.
+
+Dwg_Object.index is the object's slot in dwg->object[], so the pointer can
+simply be looked up again after each addition, which is what the rest of the
+library does.
+
+--- a/src/dwg_api.c
++++ b/src/dwg_api.c
+@@ -26414,6 +26414,10 @@
+   API_ADD_ENTITY (POLYLINE_PFACE);
+   pl = obj;
+   _pl = _obj;
++  /* Adding the vertices below reallocs dwg->object[], which invalidates pl.
++     Remember where this entity sits so it can be looked up again. */
++  const BITCODE_RL pl_index = pl->index;
++#define PL_REFRESH() (pl = &dwg->object[pl_index])
+   _pl->vertex = (BITCODE_H *)malloc (((unsigned long)numverts + numfaces)
+                                      * sizeof (BITCODE_H));
+   if (!_pl->vertex)
+@@ -26442,6 +26446,7 @@
+       vtx = dwg_obj_generic_to_object (_vtx, &error);
+       if (!vtx || !vtx->tio.entity || vtx->supertype != DWG_SUPERTYPE_ENTITY)
+         goto vtx_pface_err;
++      PL_REFRESH ();
+       _pl->vertex[i] = dwg_add_handleref (dwg, 3, vtx->handle.value, pl);
+       if (i == 0)
+         _pl->first_vertex
+@@ -26460,6 +26465,7 @@
+       if (!vtx || !vtx->tio.entity || vtx->supertype != DWG_SUPERTYPE_ENTITY)
+         goto vtx_pface_face_err;
+       vtx->tio.entity->next_entity = NULL;
++      PL_REFRESH ();
+       _pl->vertex[numverts + j]
+           = dwg_add_handleref (dwg, 3, vtx->handle.value, pl);
+       if (j == numfaces - 1)
+@@ -26478,12 +26484,15 @@
+       return NULL;
+     }
+   seq = dwg_obj_generic_to_object (_seq, &error);
++  PL_REFRESH ();
++  obj = pl;
+   _pl->seqend
+       = dwg_add_handleref (dwg, 3, dwg_obj_generic_handlevalue (_seq), pl);
+   IN_POSTPROCESS_SEQEND (seq, _pl->num_owned, _pl->vertex);
+   pl->tio.entity->next_entity = NULL; // fixup
+   if (dwg->header.version <= R_12)
+     obj->type = DWG_TYPE_POLYLINE_r11;
++#undef PL_REFRESH
+   return _pl;
+ }
+ 

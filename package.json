@@ -1,0 +1,28 @@
+{
+  "name": "glb2dwg",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Convert glTF binary (.glb) models to AutoCAD DWG in the browser, using LibreDWG compiled to WebAssembly.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "build:wasm": "bash native/build.sh",
+    "build:wasm:docker": "docker run --rm -v \"$PWD\":/src -w /src -u \"$(id -u):$(id -g)\" emscripten/emsdk:latest bash native/build.sh",
+    "dev": "node scripts/check-wasm.mjs && vite",
+    "build": "node scripts/check-wasm.mjs && tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "node --test \"test/**/*.test.ts\""
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.13",
+    "@types/node": "22.20.2",
+    "typescript": "7.0.2",
+    "vite": "8.3.0"
+  }
+}

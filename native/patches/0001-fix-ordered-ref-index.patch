@@ -1,0 +1,51 @@
+Speed up LibreDWG's handle reference index (src/dwg.c).
+
+dwg_add_handleref() looks up existing refs in a sorted index. Two problems
+made adding many entities quadratic:
+
+1. Ref_cmp returned 1 for both "greater" and "less", so the index was never
+   properly sorted, and the first duplicate key disabled it for good, falling
+   back to a linear scan over every ref on each lookup.
+2. Sorting by handle code first meant most new refs were inserted in front of
+   existing ones, shifting the whole array.
+
+Now refs are ordered by (absolute handle, code), duplicates keep the first
+ref (matching the linear search), and new refs append at the end.
+Adding 60,000 3DFACEs goes from minutes to well under a second.
+
+--- a/src/dwg.c
++++ b/src/dwg.c
+@@ -3871,12 +3871,12 @@
+ static int
+ Ref_cmp (const Dwg_Object_Ref *pKey, const Dwg_Object_Ref **ppR)
+ {
+-  int retVal = (int)pKey->handleref.code - (int)(*ppR)->handleref.code;
+-  if (0 != retVal)
+-    return retVal;
+-  return pKey->absolute_ref > (*ppR)->absolute_ref    ? 1
+-         : pKey->absolute_ref == (*ppR)->absolute_ref ? 0
+-                                                      : 1;
++  // Order by absref first: new handles only grow, so adding refs appends
++  // instead of shifting the whole array. (The old code also returned 1 for
++  // "less", which is not a valid ordering for bsearch.)
++  if (pKey->absolute_ref != (*ppR)->absolute_ref)
++    return pKey->absolute_ref > (*ppR)->absolute_ref ? 1 : -1;
++  return (int)pKey->handleref.code - (int)(*ppR)->handleref.code;
+ }
+ 
+ void
+@@ -3952,11 +3952,9 @@
+     }
+   else
+     {
+-      // There are duplicates, disable bsearch
+-      // It should never happen !
+-      free (dwg->object_ordered_ref);
+-      dwg->object_ordered_ref = NULL;
+-      dwg->num_object_ordered_refs = -1;
++      // Duplicate code+absref (e.g. entity refs added without a search).
++      // Keep the first one, which is what the linear search would return,
++      // instead of disabling bsearch and making every later lookup O(n).
+     }
+ }
+ 

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Convert a .glb 3D model into an AutoCAD DWG drawing, right in your browser."
+    />
+    <meta name="theme-color" content="#e9eee8" />
+    <title>GLB to DWG</title>
+    <link rel="icon" href="data:," />
+    <script type="module" crossorigin src="./assets/index-CSWTmLPf.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DFAbJB6w.css">
+  </head>
+  <body>
+    <main class="sheet">
+      <header class="intro">
+        <h1>GLB to DWG</h1>
+        <p>
+          Turn a binary glTF model into an AutoCAD drawing. The conversion runs in this tab, so
+          your model never leaves your computer.
+        </p>
+      </header>
+
+      <section class="pick" aria-label="Choose a model">
+        <label class="button" for="file">Choose a .glb file</label>
+        <input id="file" class="visually-hidden" type="file" accept=".glb,model/gltf-binary" />
+        <p class="hint">or drop one anywhere on this page</p>
+      </section>
+
+      <div class="options">
+        <fieldset class="option-group">
+          <legend>Geometry</legend>
+          <label class="choice">
+            <input type="radio" name="entity" value="polyface" />
+            <span>
+              Polyface meshes
+              <small>
+                Triangles share vertices, so the mesh stays connected. Meshes over 32,767
+                vertices are split into several.
+              </small>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="entity" value="3dface" checked />
+            <span>
+              3D faces
+              <small>One entity per triangle. Simpler, and opens in almost any CAD program.</small>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="checkbox" id="zup" checked />
+            <span>
+              Stand the model upright
+              <small>Rotates glTF’s Y-up axis to CAD’s Z-up.</small>
+            </span>
+          </label>
+        </fieldset>
+
+        <fieldset class="option-group">
+          <legend>Drawing units</legend>
+          <label class="choice">
+            <input type="radio" name="units" value="meters" />
+            <span>
+              Meters
+              <small>Keeps the model at glTF’s own scale.</small>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="units" value="millimeters" checked />
+            <span>
+              Millimeters
+              <small>Multiplies every coordinate by 1,000.</small>
+            </span>
+          </label>
+        </fieldset>
+      </div>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+
+      <section class="result" aria-label="Drawing details">
+        <table id="title-block" class="title-block">
+          <tbody>
+            <tr>
+              <th scope="row">Drawing</th>
+              <td id="tb-drawing" class="drawing-name" colspan="3"></td>
+            </tr>
+            <tr>
+              <th scope="row">Source</th>
+              <td id="tb-source" colspan="3"></td>
+            </tr>
+            <tr>
+              <th scope="row">Layers</th>
+              <td id="tb-layers"></td>
+              <th scope="row">Triangles</th>
+              <td id="tb-triangles"></td>
+            </tr>
+            <tr>
+              <th scope="row">Entities</th>
+              <td id="tb-entities" colspan="3"></td>
+            </tr>
+            <tr>
+              <th scope="row">Format</th>
+              <td id="tb-format" colspan="3">AutoCAD 2000 DWG</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <footer id="colophon" class="colophon">
+        Writes DWG files with
+        <a href="https://www.gnu.org/software/libredwg/">GNU LibreDWG</a>, licensed under the GPL
+        version 3 or later.
+        <span class="credit">Made by Vegar Ringdal using AI</span>
+        <span id="version" class="version"></span>
+      </footer>
+    </main>
+  </body>
+</html>

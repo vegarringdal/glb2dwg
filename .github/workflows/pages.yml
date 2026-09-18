@@ -1,0 +1,73 @@
+# Builds the site and publishes it to GitHub Pages.
+# Off by default: the site is published from the committed docs/ folder instead, so this runs
+# only when started by hand. To publish from here again, add back the push trigger below and
+# switch Settings → Pages → Source to GitHub Actions.
+name: Deploy to GitHub Pages
+
+on:
+  # push:
+  #   branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish rather than cancelling it half way.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+          actions-cache-folder: emsdk-cache
+
+      # Compiling LibreDWG takes a few minutes, so reuse it between runs.
+      - name: Cache the LibreDWG build
+        uses: actions/cache@v4
+        with:
+          path: native/build
+          key: libredwg-${{ runner.os }}-${{ hashFiles('native/build.sh', 'native/patches/*', 'native/glb2dwg.c') }}
+
+      - run: npm ci
+      - run: npm run build:wasm
+      - run: npm run lint
+      - run: npm test
+
+      - name: Build the site
+        run: npm run build
+        env:
+          # The GPL asks that people who use the page can get its source.
+          VITE_SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs
+          # Keeps .nojekyll, which this action otherwise drops as a dotfile.
+          include-hidden-files: true
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
